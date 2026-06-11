@@ -57,7 +57,7 @@ fun BenchmarkScreen(viewModel: BenchmarkViewModel = viewModel()) {
         Column(modifier = Modifier.padding(paddingValues).statusBarsPadding()) {
             ModeSwitcher(uiState.queryMode, viewModel::setQueryMode)
 
-            LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+            LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
                 item { Spacer(modifier = Modifier.height(16.dp)) }
 
                 item { 
@@ -65,9 +65,9 @@ fun BenchmarkScreen(viewModel: BenchmarkViewModel = viewModel()) {
                 }
 
                 if (uiState.isSelectingHardware) {
-                    item { Spacer(modifier = Modifier.height(24.dp)) }
+                    item { Spacer(modifier = Modifier.height(12.dp)) }
                     item { SearchBar(uiState.searchQuery, viewModel::updateSearchQuery, viewModel::search, "输入显卡型号 (e.g., 4060)") }
-                    item { Spacer(modifier = Modifier.height(16.dp)) }
+                    item { Spacer(modifier = Modifier.height(8.dp)) }
                 }
                 
                 if (uiState.searchResults.isNotEmpty()) {
@@ -78,16 +78,16 @@ fun BenchmarkScreen(viewModel: BenchmarkViewModel = viewModel()) {
                 }
                 
                 if (uiState.selectedHardware.isNotEmpty()) {
-                     item { Spacer(modifier = Modifier.height(24.dp)) }
+                     item { Spacer(modifier = Modifier.height(12.dp)) }
                     item { 
-                        Text("选择测试项目", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Text("选择测试项目", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(8.dp))
                         ScoreTypeGrid(uiState.selectedScoreType, viewModel::selectScoreType)
                      }
                 }
 
                 if (uiState.benchmarkScores.isNotEmpty() && uiState.benchmarkScores.any { it != null }) {
-                    item { Spacer(modifier = Modifier.height(24.dp)) }
+                    item { Spacer(modifier = Modifier.height(12.dp)) }
                     item { 
                         ScoreResultSection(
                             uiState.queryMode,
@@ -109,7 +109,7 @@ fun ModeSwitcher(selectedMode: QueryMode, onModeChange: (QueryMode) -> Unit) {
         selectedTabIndex = selectedMode.ordinal,
         containerColor = Background,
         contentColor = Primary,
-        divider = { Divider(color = CardBorder) }
+        divider = { HorizontalDivider(color = CardBorder) }
     ) {
         Tab(
             selected = selectedMode == QueryMode.SINGLE,
@@ -154,7 +154,7 @@ fun HardwareCard(hardware: SearchItem?, index: Int, viewModel: BenchmarkViewMode
         Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
             if (hardware != null) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                    Text(hardware.label, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                    Text(hardware.label, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodySmall)
                     Spacer(modifier = Modifier.height(8.dp))
                     Icon(Icons.Default.Done, contentDescription = "Selected", tint = GradientEnd)
                 }
@@ -175,9 +175,9 @@ fun HardwareCard(hardware: SearchItem?, index: Int, viewModel: BenchmarkViewMode
 @Composable
 private fun ScoreTypeGrid(selectedScoreType: ScoreType?, onScoreTypeSelect: (ScoreType) -> Unit) {
     val scoreTypes = ScoreType.getGpuBenchmarks()
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         scoreTypes.chunked(2).forEach { rowItems ->
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 rowItems.forEach { scoreType ->
                     ScoreTypeChip(scoreType, selectedScoreType == scoreType, { onScoreTypeSelect(scoreType) }, Modifier.weight(1f))
                 }
@@ -191,20 +191,20 @@ private fun ScoreTypeGrid(selectedScoreType: ScoreType?, onScoreTypeSelect: (Sco
 private fun ScoreTypeChip(scoreType: ScoreType, isSelected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(6.dp))
             .background(if (isSelected) Primary else CardBackground)
-            .border(1.dp, if(isSelected) Primary else CardBorder, RoundedCornerShape(12.dp))
+            .border(1.dp, if(isSelected) Primary else CardBorder, RoundedCornerShape(6.dp))
             .clickable(onClick = onClick)
-            .padding(vertical = 12.dp, horizontal = 8.dp),
+            .padding(vertical = 10.dp, horizontal = 6.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = scoreType.displayName.replace("3DMark ", ""),
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.labelSmall,
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
             color = if (isSelected) Color.White else TextPrimary,
             textAlign = TextAlign.Center,
-            maxLines = 1, 
+            maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
     }
@@ -218,8 +218,8 @@ private fun ScoreResultSection(
     scores: List<BenchmarkScores?>
 ) {
     Column {
-        Text("跑分详情 (${scoreType?.displayName?.replace("3DMark ", "")})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(12.dp))
+        Text("跑分详情 (${scoreType?.displayName?.replace("3DMark ", "")})", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(8.dp))
 
         if (mode == QueryMode.SINGLE) {
             val h = hardware.firstOrNull()
@@ -285,7 +285,7 @@ fun ComparisonBar(label: String?, score: Number, ratio: Float, color: Color, per
 
     Column {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text(label ?: "-", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), maxLines=1, overflow = TextOverflow.Ellipsis)
+            Text(label ?: "-", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), maxLines=1, overflow = TextOverflow.Ellipsis)
             Text(if (score is Double) String.format("%,.0f", score) else String.format("%,d", score), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = color)
             if (percentageText.isNotEmpty()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -294,13 +294,13 @@ fun ComparisonBar(label: String?, score: Number, ratio: Float, color: Color, per
                     } else if (percentageDiff < 0) {
                         Icon(Icons.Default.ArrowDownward, contentDescription = "down", tint = percentageColor, modifier = Modifier.size(16.dp))
                     }
-                    Text(percentageText, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = percentageColor)
+                    Text(percentageText, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = percentageColor)
                 }
             }
         }
-        Spacer(modifier = Modifier.height(4.dp))
-        Box(modifier = Modifier.fillMaxWidth().height(12.dp).background(CardBackground, RoundedCornerShape(6.dp))) {
-            Box(modifier = Modifier.fillMaxWidth(ratio).height(12.dp).background(color, RoundedCornerShape(6.dp)))
+        Spacer(modifier = Modifier.height(2.dp))
+        Box(modifier = Modifier.fillMaxWidth().height(6.dp).background(CardBackground, RoundedCornerShape(3.dp))) {
+            Box(modifier = Modifier.fillMaxWidth(ratio).height(6.dp).background(color, RoundedCornerShape(3.dp)))
         }
     }
 }
