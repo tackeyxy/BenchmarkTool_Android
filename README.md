@@ -3,7 +3,6 @@
 ![Android](https://img.shields.io/badge/Platform-Android-3DDC84?logo=android)
 ![Kotlin](https://img.shields.io/badge/Language-Kotlin-7F52FF?logo=kotlin)
 ![Jetpack Compose](https://img.shields.io/badge/UI-Jetpack%20Compose-4285F4?logo=jetpackcompose)
-![License](https://img.shields.io/badge/License-MIT-yellow)
 
 **3DMark GPU 性能排行榜 & 基准测试分数查询工具** | 3DMark GPU Performance Ranking & Benchmark Score Query Tool
 
