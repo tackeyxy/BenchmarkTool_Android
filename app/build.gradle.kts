@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.tacke.myapplication"
+    namespace = "com.tacke.benchmark"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.tacke.myapplication"
+        applicationId = "com.tacke.benchmark"
         minSdk = 24
         targetSdk = 34
         versionCode = 1
@@ -21,6 +21,15 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("release.keystore")
+            storePassword = "TackeBenchmark_2026"
+            keyAlias = "benchmark"
+            keyPassword = "TackeBenchmark_2026"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -28,6 +37,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
