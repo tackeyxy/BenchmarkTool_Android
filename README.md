@@ -126,8 +126,4 @@ cd BenchmarkTool_Android
 ./gradlew assembleRelease
 ```
 
----
 
-## 许可 | License
-
-[MIT](LICENSE)
