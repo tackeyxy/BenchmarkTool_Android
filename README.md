@@ -38,15 +38,7 @@
 - 将两颗处理器并排对比
 - 显示单核/多核分数的百分比差值与进度条
 
----
 
-## 截图 | Screenshots
-
-| 首页 | GPU 排行榜 | GPU 分数查询 | CPU 对比 |
-|------|-----------|-------------|---------|
-| ![Home](screenshots/home.png) | ![Ranking](screenshots/ranking.png) | ![GPU Query](screenshots/gpu_query.png) | ![CPU Compare](screenshots/cpu_compare.png) |
-
----
 
 ## 技术栈 | Tech Stack
 
