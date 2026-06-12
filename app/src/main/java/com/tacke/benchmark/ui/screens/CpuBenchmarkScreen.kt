@@ -13,21 +13,32 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Done
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -35,10 +46,18 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.tacke.benchmark.data.model.CpuBenchmarkScores
 import com.tacke.benchmark.data.model.SearchItem
-import com.tacke.benchmark.ui.components.CpuSearchSheet
 import com.tacke.benchmark.ui.components.LoadingDialog
-import com.tacke.benchmark.ui.theme.*
+import com.tacke.benchmark.ui.components.SearchSheet
+import com.tacke.benchmark.ui.theme.Accent
+import com.tacke.benchmark.ui.theme.Background
+import com.tacke.benchmark.ui.theme.CardBackground
+import com.tacke.benchmark.ui.theme.CardBorder
+import com.tacke.benchmark.ui.theme.Primary
+import com.tacke.benchmark.ui.theme.SurfaceVariant
+import com.tacke.benchmark.ui.theme.TextPrimary
+import com.tacke.benchmark.ui.theme.TextSecondary
 import com.tacke.benchmark.ui.viewmodel.CpuBenchmarkViewModel
 import com.tacke.benchmark.ui.viewmodel.QueryMode
 
@@ -105,8 +124,11 @@ fun CpuBenchmarkScreen(viewModel: CpuBenchmarkViewModel = viewModel()) {
         }
 
         if (uiState.showSearchSheet) {
-            CpuSearchSheet(
+            SearchSheet(
                 sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                title = "选择处理器",
+                placeholder = "输入处理器型号 (e.g., 14900K, Ryzen 9 7950X)",
+                emptyText = "未找到匹配的处理器",
                 query = uiState.searchQuery,
                 results = uiState.searchResults,
                 isSearching = uiState.isSearching,
@@ -175,9 +197,7 @@ private fun CpuHardwareCard(
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+        modifier = modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = if (hardware != null) CardBackground else SurfaceVariant),
         elevation = CardDefaults.cardElevation(defaultElevation = if (hardware != null) 2.dp else 0.dp),
@@ -206,16 +226,8 @@ private fun CpuHardwareCard(
                         textAlign = TextAlign.Center,
                         modifier = Modifier.weight(1f)
                     )
-                    IconButton(
-                        onClick = onRemove,
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = "Remove",
-                            tint = TextSecondary,
-                            modifier = Modifier.size(20.dp)
-                        )
+                    IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Default.Close, contentDescription = "Remove", tint = TextSecondary, modifier = Modifier.size(20.dp))
                     }
                 }
             } else {
@@ -224,19 +236,9 @@ private fun CpuHardwareCard(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        Icons.Default.Add,
-                        contentDescription = null,
-                        tint = Primary.copy(alpha = 0.5f),
-                        modifier = Modifier.size(18.dp)
-                    )
+                    Icon(Icons.Default.Add, contentDescription = null, tint = Primary.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        "点击选择处理器",
-                        color = Primary.copy(alpha = 0.5f),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium
-                    )
+                    Text("点击选择处理器", color = Primary.copy(alpha = 0.5f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                 }
             }
         }
@@ -247,7 +249,7 @@ private fun CpuHardwareCard(
 private fun CpuScoreResults(
     mode: QueryMode,
     hardware: List<SearchItem>,
-    scores: List<com.tacke.benchmark.data.model.CpuBenchmarkScores?>
+    scores: List<CpuBenchmarkScores?>
 ) {
     Column {
         Text(
@@ -270,12 +272,7 @@ private fun CpuScoreResults(
             val score1 = scores.getOrNull(0)
             val score2 = scores.getOrNull(1)
 
-            Text(
-                "单核分数",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = TextSecondary
-            )
+            Text("单核分数", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = TextSecondary)
             Spacer(modifier = Modifier.height(8.dp))
             CpuScoreComparisonRow(
                 hardware.getOrNull(0), score1?.singleScore,
@@ -284,12 +281,7 @@ private fun CpuScoreResults(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Text(
-                "多核分数",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = TextSecondary
-            )
+            Text("多核分数", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = TextSecondary)
             Spacer(modifier = Modifier.height(8.dp))
             CpuScoreComparisonRow(
                 hardware.getOrNull(0), score1?.multiScore,
@@ -388,27 +380,12 @@ private fun CpuComparisonBar(
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (percentageDiff > 0) {
-                                Icon(
-                                    Icons.Default.ArrowUpward,
-                                    contentDescription = "up",
-                                    tint = percentageColor,
-                                    modifier = Modifier.size(12.dp)
-                                )
+                                Icon(Icons.Default.ArrowUpward, contentDescription = "up", tint = percentageColor, modifier = Modifier.size(12.dp))
                             } else if (percentageDiff < 0) {
-                                Icon(
-                                    Icons.Default.ArrowDownward,
-                                    contentDescription = "down",
-                                    tint = percentageColor,
-                                    modifier = Modifier.size(12.dp)
-                                )
+                                Icon(Icons.Default.ArrowDownward, contentDescription = "down", tint = percentageColor, modifier = Modifier.size(12.dp))
                             }
                             Spacer(modifier = Modifier.size(2.dp))
-                            Text(
-                                percentageText,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = percentageColor
-                            )
+                            Text(percentageText, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = percentageColor)
                         }
                     }
                 }

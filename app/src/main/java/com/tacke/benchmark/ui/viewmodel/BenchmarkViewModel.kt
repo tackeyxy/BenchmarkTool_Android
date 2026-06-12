@@ -97,13 +97,14 @@ class BenchmarkViewModel : ViewModel() {
             }
             state.copy(
                 selectedHardware = updatedHardware,
+                selectedScoreType = null,
+                benchmarkScores = emptyList(),
                 showSearchSheet = false,
                 searchQuery = "",
                 searchResults = emptyList(),
                 selectingFor = if (state.queryMode == QueryMode.COMPARE && updatedHardware.size < 2) 1 else 0
             )
         }
-        fetchBenchmarkScores()
     }
 
     fun selectScoreType(scoreType: ScoreType) {
@@ -137,16 +138,13 @@ class BenchmarkViewModel : ViewModel() {
     fun removeHardware(index: Int) {
         _uiState.update { state ->
             val updatedHardware = state.selectedHardware.toMutableList()
-            val updatedScores = state.benchmarkScores.toMutableList()
             if (index < updatedHardware.size) {
                 updatedHardware.removeAt(index)
             }
-            if (index < updatedScores.size) {
-                updatedScores.removeAt(index)
-            }
             state.copy(
-                selectedHardware = updatedHardware, 
-                benchmarkScores = updatedScores,
+                selectedHardware = updatedHardware,
+                selectedScoreType = null,
+                benchmarkScores = emptyList(),
                 showSearchSheet = false
             )
         }

@@ -1,21 +1,45 @@
 package com.tacke.benchmark.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Done
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,8 +53,16 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tacke.benchmark.data.model.BenchmarkScores
 import com.tacke.benchmark.data.model.ScoreType
 import com.tacke.benchmark.data.model.SearchItem
-import com.tacke.benchmark.ui.components.*
-import com.tacke.benchmark.ui.theme.*
+import com.tacke.benchmark.ui.components.LoadingDialog
+import com.tacke.benchmark.ui.components.SearchSheet
+import com.tacke.benchmark.ui.theme.Accent
+import com.tacke.benchmark.ui.theme.Background
+import com.tacke.benchmark.ui.theme.CardBackground
+import com.tacke.benchmark.ui.theme.CardBorder
+import com.tacke.benchmark.ui.theme.Primary
+import com.tacke.benchmark.ui.theme.SurfaceVariant
+import com.tacke.benchmark.ui.theme.TextPrimary
+import com.tacke.benchmark.ui.theme.TextSecondary
 import com.tacke.benchmark.ui.viewmodel.BenchmarkViewModel
 import com.tacke.benchmark.ui.viewmodel.QueryMode
 
@@ -55,11 +87,13 @@ fun BenchmarkScreen(viewModel: BenchmarkViewModel = viewModel()) {
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = Background
     ) { paddingValues ->
-        Column(modifier = Modifier.padding(paddingValues)) {
-            GpuHeader()
-            ModeSwitcher(uiState.queryMode, viewModel::setQueryMode)
-
+        Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
             LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+                item { Spacer(modifier = Modifier.height(4.dp)) }
+                item { GpuHeader() }
+                item { Spacer(modifier = Modifier.height(6.dp)) }
+                item { ModeSwitcher(uiState.queryMode, viewModel::setQueryMode) }
+
                 item { Spacer(modifier = Modifier.height(8.dp)) }
 
                 item {
@@ -84,7 +118,7 @@ fun BenchmarkScreen(viewModel: BenchmarkViewModel = viewModel()) {
                 val showTestItems = uiState.queryMode == QueryMode.SINGLE ||
                     (uiState.queryMode == QueryMode.COMPARE && uiState.selectedHardware.size >= 2)
                 if (uiState.selectedHardware.isNotEmpty() && showTestItems) {
-                    item { Spacer(modifier = Modifier.height(if (uiState.queryMode == QueryMode.SINGLE) 20.dp else 12.dp)) }
+                    item { Spacer(modifier = Modifier.height(if (uiState.queryMode == QueryMode.SINGLE) 20.dp else 8.dp)) }
                     item {
                         Text(
                             "选择测试项目",
@@ -92,13 +126,13 @@ fun BenchmarkScreen(viewModel: BenchmarkViewModel = viewModel()) {
                             fontWeight = FontWeight.SemiBold,
                             color = TextPrimary
                         )
-                        Spacer(modifier = Modifier.height(if (uiState.queryMode == QueryMode.SINGLE) 10.dp else 6.dp))
+                        Spacer(modifier = Modifier.height(if (uiState.queryMode == QueryMode.SINGLE) 10.dp else 4.dp))
                         ScoreTypeGrid(uiState.selectedScoreType, viewModel::selectScoreType)
                     }
                 }
 
                 if (uiState.benchmarkScores.isNotEmpty() && uiState.benchmarkScores.any { it != null }) {
-                    item { Spacer(modifier = Modifier.height(12.dp)) }
+                    item { Spacer(modifier = Modifier.height(8.dp)) }
                     item {
                         GpuScoreResultSection(
                             uiState.queryMode,
@@ -113,8 +147,11 @@ fun BenchmarkScreen(viewModel: BenchmarkViewModel = viewModel()) {
         }
 
         if (uiState.showSearchSheet) {
-            GpuSearchSheet(
+            SearchSheet(
                 sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                title = "选择显卡",
+                placeholder = "输入显卡型号 (e.g., 4060)",
+                emptyText = "未找到匹配的显卡",
                 query = uiState.searchQuery,
                 results = uiState.searchResults,
                 isSearching = uiState.isSearching,
@@ -145,7 +182,6 @@ private fun GpuHeader() {
 
 @Composable
 fun ModeSwitcher(selectedMode: QueryMode, onModeChange: (QueryMode) -> Unit) {
-    val primaryColor = Primary
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         shape = RoundedCornerShape(10.dp),
@@ -162,7 +198,7 @@ fun ModeSwitcher(selectedMode: QueryMode, onModeChange: (QueryMode) -> Unit) {
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(if (isSelected) primaryColor else Color.Transparent)
+                        .background(if (isSelected) Primary else Color.Transparent)
                         .clickable { onModeChange(mode) }
                         .padding(vertical = 8.dp),
                     contentAlignment = Alignment.Center
@@ -180,7 +216,7 @@ fun ModeSwitcher(selectedMode: QueryMode, onModeChange: (QueryMode) -> Unit) {
 }
 
 @Composable
-fun GpuHardwareSelection(
+private fun GpuHardwareSelection(
     selectedHardware: List<SearchItem>,
     queryMode: QueryMode,
     onAddClick: (Int) -> Unit,
@@ -211,16 +247,14 @@ fun GpuHardwareSelection(
 }
 
 @Composable
-fun GpuHardwareCard(
+private fun GpuHardwareCard(
     hardware: SearchItem?,
     onClick: () -> Unit,
     onRemove: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+        modifier = modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = if (hardware != null) CardBackground else SurfaceVariant),
         elevation = CardDefaults.cardElevation(defaultElevation = if (hardware != null) 1.dp else 0.dp),
@@ -230,12 +264,12 @@ fun GpuHardwareCard(
         )
     ) {
         Box(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp),
             contentAlignment = Alignment.Center
         ) {
             if (hardware != null) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -249,37 +283,19 @@ fun GpuHardwareCard(
                         textAlign = TextAlign.Center,
                         modifier = Modifier.weight(1f)
                     )
-                    IconButton(
-                        onClick = onRemove,
-                        modifier = Modifier.size(28.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = "Remove",
-                            tint = TextSecondary,
-                            modifier = Modifier.size(18.dp)
-                        )
+                    IconButton(onClick = onRemove, modifier = Modifier.size(28.dp)) {
+                        Icon(Icons.Default.Close, contentDescription = "Remove", tint = TextSecondary, modifier = Modifier.size(18.dp))
                     }
                 }
             } else {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        Icons.Default.Add,
-                        contentDescription = null,
-                        tint = Primary.copy(alpha = 0.5f),
-                        modifier = Modifier.size(18.dp)
-                    )
+                    Icon(Icons.Default.Add, contentDescription = null, tint = Primary.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        "点击选择显卡",
-                        color = Primary.copy(alpha = 0.5f),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium
-                    )
+                    Text("点击选择显卡", color = Primary.copy(alpha = 0.5f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                 }
             }
         }
@@ -310,12 +326,8 @@ private fun ScoreTypeChip(scoreType: ScoreType, isSelected: Boolean, onClick: ()
     Card(
         modifier = modifier.clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) Primary else CardBackground
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = if (isSelected) 3.dp else 0.dp
-        ),
+        colors = CardDefaults.cardColors(containerColor = if (isSelected) Primary else CardBackground),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 3.dp else 0.dp),
         border = BorderStroke(1.dp, if (isSelected) Primary else CardBorder)
     ) {
         Box(
@@ -367,23 +379,13 @@ private fun GpuScoreResultSection(
             val medianScore1 = score1?.medianScore ?: 0.0
             val medianScore2 = score2?.medianScore ?: 0.0
 
-            Text(
-                "最高分数",
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = TextSecondary
-            )
+            Text("最高分数", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = TextSecondary)
             Spacer(modifier = Modifier.height(2.dp))
             GpuScoreComparisonRow(hardware.getOrNull(0), maxScore1, hardware.getOrNull(1), maxScore2)
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
-            Text(
-                "中位分数",
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = TextSecondary
-            )
+            Text("中位分数", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = TextSecondary)
             Spacer(modifier = Modifier.height(2.dp))
             GpuScoreComparisonRow(hardware.getOrNull(0), medianScore1, hardware.getOrNull(1), medianScore2)
         }
@@ -416,7 +418,7 @@ private fun GpuScoreCard(title: String, score: Number, color: Color, modifier: M
 }
 
 @Composable
-fun GpuScoreComparisonRow(h1: SearchItem?, s1: Number, h2: SearchItem?, s2: Number) {
+private fun GpuScoreComparisonRow(h1: SearchItem?, s1: Number, h2: SearchItem?, s2: Number) {
     val score1 = s1.toFloat()
     val score2 = s2.toFloat()
     val maxScore = maxOf(score1, score2).coerceAtLeast(1f)
@@ -429,20 +431,18 @@ fun GpuScoreComparisonRow(h1: SearchItem?, s1: Number, h2: SearchItem?, s2: Numb
         0f
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         GpuComparisonBar(h1?.label, s1, ratio1, Primary)
         GpuComparisonBar(h2?.label, s2, ratio2, Accent, percentageDiff)
     }
 }
 
 @Composable
-fun GpuComparisonBar(label: String?, score: Number, ratio: Float, color: Color, percentageDiff: Float = 0f) {
+private fun GpuComparisonBar(label: String?, score: Number, ratio: Float, color: Color, percentageDiff: Float = 0f) {
     val percentageText = if (percentageDiff != 0f) {
         val sign = if (percentageDiff > 0) "+" else ""
         String.format(locale = java.util.Locale.US, "%s%.1f%%", sign, percentageDiff)
-    } else {
-        ""
-    }
+    } else ""
     val percentageColor = if (percentageDiff < 0) Color.Red else if (percentageDiff > 0) Color(0xFF4CAF50) else TextSecondary
 
     Column {
@@ -476,47 +476,26 @@ fun GpuComparisonBar(label: String?, score: Number, ratio: Float, color: Color, 
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (percentageDiff > 0) {
-                                Icon(
-                                    Icons.Default.ArrowUpward,
-                                    contentDescription = "up",
-                                    tint = percentageColor,
-                                    modifier = Modifier.size(12.dp)
-                                )
+                                Icon(Icons.Default.ArrowUpward, contentDescription = "up", tint = percentageColor, modifier = Modifier.size(12.dp))
                             } else if (percentageDiff < 0) {
-                                Icon(
-                                    Icons.Default.ArrowDownward,
-                                    contentDescription = "down",
-                                    tint = percentageColor,
-                                    modifier = Modifier.size(12.dp)
-                                )
+                                Icon(Icons.Default.ArrowDownward, contentDescription = "down", tint = percentageColor, modifier = Modifier.size(12.dp))
                             }
                             Spacer(modifier = Modifier.size(2.dp))
-                            Text(
-                                percentageText,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = percentageColor
-                            )
+                            Text(percentageText, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = percentageColor)
                         }
                     }
                 }
             }
         }
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(2.dp))
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(6.dp)
-                .background(SurfaceVariant, RoundedCornerShape(3.dp))
+            modifier = Modifier.fillMaxWidth().height(6.dp).background(SurfaceVariant, RoundedCornerShape(3.dp))
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth(ratio.coerceIn(0f, 1f))
                     .height(6.dp)
-                    .background(
-                        brush = Brush.horizontalGradient(listOf(color, color.copy(alpha = 0.7f))),
-                        shape = RoundedCornerShape(3.dp)
-                    )
+                    .background(brush = Brush.horizontalGradient(listOf(color, color.copy(alpha = 0.7f))), shape = RoundedCornerShape(3.dp))
             )
         }
     }
