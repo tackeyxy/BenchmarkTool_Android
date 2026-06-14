@@ -38,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.tacke.benchmark.data.model.SearchItem
@@ -58,7 +59,9 @@ fun SearchSheet(
     query: String,
     results: List<SearchItem>,
     isSearching: Boolean,
+    hasSearched: Boolean = false,
     isLoadingData: Boolean = false,
+    errorMessage: String? = null,
     onQueryChange: (String) -> Unit,
     onSelect: (SearchItem) -> Unit,
     onDismiss: () -> Unit
@@ -136,7 +139,21 @@ fun SearchSheet(
                 ) {
                     CircularProgressIndicator(color = Primary, modifier = Modifier.size(32.dp))
                 }
-            } else if (results.isEmpty() && query.isNotEmpty()) {
+            } else if (errorMessage != null) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            errorMessage,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            } else if (hasSearched && results.isEmpty() && query.isNotEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
                     contentAlignment = Alignment.Center

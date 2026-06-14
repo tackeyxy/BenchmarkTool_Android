@@ -99,7 +99,7 @@ class CpuBenchmarkViewModel : ViewModel() {
         val results = repository.searchCpu(query)
         _uiState.update {
             it.copy(
-                searchResults = results.map { SearchItem(it.ranking, it.cpu) },
+                searchResults = results.map { SearchItem(it.ranking.toString(), it.cpu) },
                 isSearching = false
             )
         }

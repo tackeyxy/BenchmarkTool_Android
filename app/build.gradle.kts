@@ -25,7 +25,7 @@ android {
         create("release") {
             storeFile = file("release.keystore")
             storePassword = "TackeBenchmark_2026"
-            keyAlias = "benchmark"
+            keyAlias = "TackeBenchmark_2026"
             keyPassword = "TackeBenchmark_2026"
         }
     }

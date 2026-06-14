@@ -133,6 +133,7 @@ fun CpuBenchmarkScreen(viewModel: CpuBenchmarkViewModel = viewModel()) {
                 results = uiState.searchResults,
                 isSearching = uiState.isSearching,
                 isLoadingData = uiState.isLoadingData,
+                errorMessage = uiState.errorMessage,
                 onQueryChange = viewModel::updateSearchQuery,
                 onSelect = viewModel::selectHardware,
                 onDismiss = viewModel::closeSearchSheet

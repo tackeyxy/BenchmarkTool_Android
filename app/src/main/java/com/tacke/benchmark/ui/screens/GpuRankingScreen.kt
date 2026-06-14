@@ -60,10 +60,7 @@ fun GpuRankingScreen(viewModel: GpuRankViewModel = viewModel()) {
 
     LaunchedEffect(searchQuery) {
         if (searchQuery.isNotBlank() && filteredRanks.isNotEmpty()) {
-            val originalIndex = uiState.ranks.indexOfFirst { it.name == filteredRanks.first().name }
-            if (originalIndex >= 0) {
-                listState.animateScrollToItem(originalIndex + 2)
-            }
+            listState.animateScrollToItem(2)
         }
     }
 
@@ -106,7 +103,7 @@ fun GpuRankingScreen(viewModel: GpuRankViewModel = viewModel()) {
                         item {
                             RankTableHeader()
                         }
-                        itemsIndexed(uiState.ranks) { index, item ->
+                        itemsIndexed(filteredRanks) { index, item ->
                             val isHighlighted = searchQuery.isNotBlank() &&
                                 item.name.contains(searchQuery, ignoreCase = true)
                             RankTableRow(

@@ -1,5 +1,6 @@
 package com.tacke.benchmark.ui.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tacke.benchmark.data.model.BenchmarkScores
@@ -21,6 +22,7 @@ data class BenchmarkUiState(
     val searchQuery: String = "",
     val searchResults: List<SearchItem> = emptyList(),
     val isSearching: Boolean = false,
+    val hasSearched: Boolean = false,
     val showSearchSheet: Boolean = false,
     val selectedHardware: List<SearchItem> = emptyList(),
     val selectedScoreType: ScoreType? = null,
@@ -48,7 +50,8 @@ class BenchmarkViewModel : ViewModel() {
                 benchmarkScores = emptyList(), 
                 searchQuery = "", 
                 searchResults = emptyList(),
-                showSearchSheet = false
+                showSearchSheet = false,
+                hasSearched = false
             ) 
         }
     }
@@ -56,12 +59,12 @@ class BenchmarkViewModel : ViewModel() {
     fun closeSearchSheet() {
         searchJob?.cancel()
         _uiState.update {
-            it.copy(showSearchSheet = false, searchQuery = "", searchResults = emptyList(), isSearching = false)
+            it.copy(showSearchSheet = false, searchQuery = "", searchResults = emptyList(), isSearching = false, hasSearched = false, errorMessage = null)
         }
     }
 
     fun updateSearchQuery(query: String) {
-        _uiState.update { it.copy(searchQuery = query) }
+        _uiState.update { it.copy(searchQuery = query, hasSearched = false, errorMessage = null) }
         searchJob?.cancel()
         if (query.isBlank()) {
             _uiState.update { it.copy(searchResults = emptyList(), isSearching = false) }
@@ -74,11 +77,18 @@ class BenchmarkViewModel : ViewModel() {
     }
 
     private suspend fun performSearch(query: String) {
+        Log.d("BenchmarkVM", "performSearch: query=$query")
         _uiState.update { it.copy(isSearching = true, errorMessage = null) }
         val result = repository.searchGpu(query)
         result.fold(
-            onSuccess = { items -> _uiState.update { it.copy(searchResults = items, isSearching = false) } },
-            onFailure = { error -> _uiState.update { it.copy(isSearching = false, errorMessage = "搜索失败: ${error.message}") } }
+            onSuccess = { items ->
+                Log.d("BenchmarkVM", "performSearch success: ${items.size} items")
+                _uiState.update { it.copy(searchResults = items, isSearching = false, hasSearched = true) }
+            },
+            onFailure = { error ->
+                Log.e("BenchmarkVM", "performSearch failed", error)
+                _uiState.update { it.copy(isSearching = false, errorMessage = "搜索失败: ${error.message}", hasSearched = true) }
+            }
         )
     }
 
@@ -102,6 +112,7 @@ class BenchmarkViewModel : ViewModel() {
                 showSearchSheet = false,
                 searchQuery = "",
                 searchResults = emptyList(),
+                hasSearched = false,
                 selectingFor = if (state.queryMode == QueryMode.COMPARE && updatedHardware.size < 2) 1 else 0
             )
         }
@@ -119,7 +130,7 @@ class BenchmarkViewModel : ViewModel() {
 
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingScores = true, errorMessage = null) }
-            val scores = hardwareList.map { repository.getBenchmarkScores(scoreType, it.id).getOrNull() }
+            val scores = hardwareList.map { repository.getBenchmarkScores(scoreType, it.idInt).getOrNull() }
             _uiState.update { it.copy(benchmarkScores = scores, isLoadingScores = false) }
         }
     }
@@ -130,7 +141,9 @@ class BenchmarkViewModel : ViewModel() {
                 selectingFor = index, 
                 searchQuery = "", 
                 searchResults = emptyList(),
-                showSearchSheet = true
+                showSearchSheet = true,
+                hasSearched = false,
+                errorMessage = null
             ) 
         }
     }
@@ -160,7 +173,8 @@ class BenchmarkViewModel : ViewModel() {
                 selectingFor = 0,
                 searchQuery = "",
                 searchResults = emptyList(),
-                showSearchSheet = false
+                showSearchSheet = false,
+                hasSearched = false
             )
         }
     }
