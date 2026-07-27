@@ -1,13 +1,19 @@
 package com.tacke.benchmark.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,19 +23,24 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.automirrored.filled.CompareArrows
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -45,24 +56,26 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tacke.benchmark.data.model.BenchmarkScores
 import com.tacke.benchmark.data.model.ScoreType
 import com.tacke.benchmark.data.model.SearchItem
+import com.tacke.benchmark.ui.components.GradientDivider
 import com.tacke.benchmark.ui.components.LoadingDialog
 import com.tacke.benchmark.ui.components.SearchSheet
-import com.tacke.benchmark.ui.theme.Accent
-import com.tacke.benchmark.ui.theme.Background
-import com.tacke.benchmark.ui.theme.CardBackground
-import com.tacke.benchmark.ui.theme.CardBorder
+import com.tacke.benchmark.ui.theme.GradientEnd
+import com.tacke.benchmark.ui.theme.GradientStart
+import com.tacke.benchmark.ui.theme.PositiveDelta
 import com.tacke.benchmark.ui.theme.Primary
-import com.tacke.benchmark.ui.theme.SurfaceVariant
-import com.tacke.benchmark.ui.theme.TextPrimary
-import com.tacke.benchmark.ui.theme.TextSecondary
+import com.tacke.benchmark.ui.theme.Secondary
+
 import com.tacke.benchmark.ui.viewmodel.BenchmarkViewModel
 import com.tacke.benchmark.ui.viewmodel.QueryMode
 
@@ -85,64 +98,64 @@ fun BenchmarkScreen(viewModel: BenchmarkViewModel = viewModel()) {
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = Background
+        containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
-        Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
-            LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-                item { Spacer(modifier = Modifier.height(4.dp)) }
-                item { GpuHeader() }
-                item { Spacer(modifier = Modifier.height(6.dp)) }
-                item { ModeSwitcher(uiState.queryMode, viewModel::setQueryMode) }
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(horizontal = 16.dp),
+            contentPadding = PaddingValues(bottom = 24.dp)
+        ) {
+            item {
+                Spacer(modifier = Modifier.height(4.dp))
+                HeaderSection()
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
-                item { Spacer(modifier = Modifier.height(8.dp)) }
+            item {
+                ModeSection(
+                    selectedMode = uiState.queryMode,
+                    onModeChange = viewModel::setQueryMode
+                )
+                Spacer(modifier = Modifier.height(20.dp))
+            }
 
+            item {
+                SectionTitle("选择显卡")
+                Spacer(modifier = Modifier.height(10.dp))
+                GpuSelectionArea(
+                    selectedHardware = uiState.selectedHardware,
+                    queryMode = uiState.queryMode,
+                    onAddClick = { index -> viewModel.setSelectingFor(index) },
+                    onRemoveClick = { index -> viewModel.removeHardware(index) }
+                )
+            }
+
+            val showTestItems = uiState.queryMode == QueryMode.SINGLE ||
+                (uiState.queryMode == QueryMode.COMPARE && uiState.selectedHardware.size >= 2)
+            if (uiState.selectedHardware.isNotEmpty() && showTestItems) {
                 item {
-                    Text(
-                        "选择显卡",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = TextPrimary
+                    Spacer(modifier = Modifier.height(20.dp))
+                    SectionTitle("选择测试项目")
+                    Spacer(modifier = Modifier.height(10.dp))
+                    ScoreTypeStrip(
+                        selected = uiState.selectedScoreType,
+                        onSelect = viewModel::selectScoreType
                     )
-                    Spacer(modifier = Modifier.height(6.dp))
                 }
+            }
 
+            if (uiState.benchmarkScores.isNotEmpty() && uiState.benchmarkScores.any { it != null }) {
                 item {
-                    GpuHardwareSelection(
-                        selectedHardware = uiState.selectedHardware,
-                        queryMode = uiState.queryMode,
-                        onAddClick = { index -> viewModel.setSelectingFor(index) },
-                        onRemoveClick = { index -> viewModel.removeHardware(index) }
+                    Spacer(modifier = Modifier.height(24.dp))
+                    ScoreDashboard(
+                        mode = uiState.queryMode,
+                        scoreType = uiState.selectedScoreType,
+                        hardware = uiState.selectedHardware,
+                        scores = uiState.benchmarkScores
                     )
                 }
-
-                val showTestItems = uiState.queryMode == QueryMode.SINGLE ||
-                    (uiState.queryMode == QueryMode.COMPARE && uiState.selectedHardware.size >= 2)
-                if (uiState.selectedHardware.isNotEmpty() && showTestItems) {
-                    item { Spacer(modifier = Modifier.height(if (uiState.queryMode == QueryMode.SINGLE) 20.dp else 8.dp)) }
-                    item {
-                        Text(
-                            "选择测试项目",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = TextPrimary
-                        )
-                        Spacer(modifier = Modifier.height(if (uiState.queryMode == QueryMode.SINGLE) 10.dp else 4.dp))
-                        ScoreTypeGrid(uiState.selectedScoreType, viewModel::selectScoreType)
-                    }
-                }
-
-                if (uiState.benchmarkScores.isNotEmpty() && uiState.benchmarkScores.any { it != null }) {
-                    item { Spacer(modifier = Modifier.height(8.dp)) }
-                    item {
-                        GpuScoreResultSection(
-                            uiState.queryMode,
-                            uiState.selectedScoreType,
-                            uiState.selectedHardware,
-                            uiState.benchmarkScores
-                        )
-                    }
-                }
-                item { Spacer(modifier = Modifier.height(16.dp)) }
             }
         }
 
@@ -166,79 +179,212 @@ fun BenchmarkScreen(viewModel: BenchmarkViewModel = viewModel()) {
 }
 
 @Composable
-private fun GpuHeader() {
-    Column(modifier = Modifier.padding(horizontal = 16.dp).padding(top = 4.dp, bottom = 0.dp)) {
-        Text(
-            "3DMark 显卡测试",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = TextPrimary
-        )
-        Text(
-            "查询显卡基准测试分数与性能对比",
-            style = MaterialTheme.typography.labelSmall,
-            color = TextSecondary
-        )
-    }
-}
-
-@Composable
-fun ModeSwitcher(selectedMode: QueryMode, onModeChange: (QueryMode) -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(10.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+private fun HeaderSection() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(
+                Brush.linearGradient(
+                    colors = listOf(
+                        Primary.copy(alpha = 0.15f),
+                        Secondary.copy(alpha = 0.05f)
+                    )
+                )
+            )
+            .padding(20.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(3.dp),
-            horizontalArrangement = Arrangement.spacedBy(3.dp)
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            QueryMode.entries.forEach { mode ->
-                val isSelected = selectedMode == mode
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(if (isSelected) Primary else Color.Transparent)
-                        .clickable { onModeChange(mode) }
-                        .padding(vertical = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = if (mode == QueryMode.SINGLE) "单项查询" else "性能对比",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                        color = if (isSelected) Color.White else TextSecondary
-                    )
-                }
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(
+                        Brush.linearGradient(listOf(GradientStart, GradientEnd))
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.Speed,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(26.dp)
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "3DMark GPU 测试",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    "查询显卡基准测试分数与性能对比",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
 }
 
 @Composable
-private fun GpuHardwareSelection(
+private fun SectionTitle(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onSurface
+    )
+}
+
+@Composable
+private fun ModeSection(
+    selectedMode: QueryMode,
+    onModeChange: (QueryMode) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        ModeCard(
+            mode = QueryMode.SINGLE,
+            label = "单项查询",
+            icon = Icons.Default.Star,
+            isSelected = selectedMode == QueryMode.SINGLE,
+            onClick = { onModeChange(QueryMode.SINGLE) },
+            modifier = Modifier.weight(1f)
+        )
+        ModeCard(
+            mode = QueryMode.COMPARE,
+            label = "性能对比",
+            icon = Icons.AutoMirrored.Filled.CompareArrows,
+            isSelected = selectedMode == QueryMode.COMPARE,
+            onClick = { onModeChange(QueryMode.COMPARE) },
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun ModeCard(
+    mode: QueryMode,
+    label: String,
+    icon: ImageVector,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) MaterialTheme.colorScheme.surface
+                else MaterialTheme.colorScheme.surfaceVariant
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(
+            1.dp,
+            if (isSelected) Primary.copy(alpha = 0.5f)
+                else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(
+                    if (isSelected) {
+                        Modifier.background(
+                            Brush.linearGradient(
+                                colors = listOf(
+                                    GradientStart.copy(alpha = 0.08f),
+                                    GradientEnd.copy(alpha = 0.03f)
+                                )
+                            )
+                        )
+                    } else Modifier
+                )
+                .padding(vertical = 14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Box(
+                modifier = if (isSelected) {
+                    Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Brush.linearGradient(listOf(GradientStart, GradientEnd)))
+                } else {
+                    Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                color = if (isSelected) Primary else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun GpuSelectionArea(
     selectedHardware: List<SearchItem>,
     queryMode: QueryMode,
     onAddClick: (Int) -> Unit,
     onRemoveClick: (Int) -> Unit
 ) {
     if (queryMode == QueryMode.SINGLE) {
-        GpuHardwareCard(
+        GpuSelectionCard(
             hardware = selectedHardware.firstOrNull(),
             onClick = { onAddClick(0) },
             onRemove = { onRemoveClick(0) }
         )
     } else {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            GpuHardwareCard(
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(0.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            GpuSelectionCard(
                 hardware = selectedHardware.getOrNull(0),
                 onClick = { onAddClick(0) },
                 onRemove = { onRemoveClick(0) },
                 modifier = Modifier.weight(1f)
             )
-            GpuHardwareCard(
+            Box(
+                modifier = Modifier
+                    .padding(horizontal = 4.dp)
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.linearGradient(listOf(GradientStart, GradientEnd))
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    "VS",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
+            GpuSelectionCard(
                 hardware = selectedHardware.getOrNull(1),
                 onClick = { onAddClick(1) },
                 onRemove = { onRemoveClick(1) },
@@ -249,256 +395,416 @@ private fun GpuHardwareSelection(
 }
 
 @Composable
-private fun GpuHardwareCard(
+private fun GpuSelectionCard(
     hardware: SearchItem?,
     onClick: () -> Unit,
     onRemove: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val hasHardware = hardware != null
     Card(
-        modifier = modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = if (hardware != null) CardBackground else SurfaceVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (hardware != null) 1.dp else 0.dp),
-        border = BorderStroke(
-            width = if (hardware != null) 1.dp else 2.dp,
-            color = if (hardware != null) CardBorder else Primary.copy(alpha = 0.3f)
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (hasHardware) MaterialTheme.colorScheme.surface
+                else MaterialTheme.colorScheme.surfaceVariant
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = if (hasHardware) {
+            BorderStroke(
+                1.dp,
+                MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+            )
+        } else BorderStroke(
+            1.5.dp,
+            Primary.copy(alpha = 0.25f)
         )
     ) {
-        Box(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            if (hardware != null) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+        if (hasHardware) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            Brush.linearGradient(listOf(GradientStart, GradientEnd))
+                        ),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        hardware.label,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        color = TextPrimary,
-                        style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.weight(1f)
+                    Icon(
+                        Icons.Default.Speed,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
                     )
-                    IconButton(onClick = onRemove, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Default.Close, contentDescription = "Remove", tint = TextSecondary, modifier = Modifier.size(18.dp))
-                    }
                 }
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    hardware.label,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                IconButton(
+                    onClick = onRemove,
+                    modifier = Modifier.size(24.dp)
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = null, tint = Primary.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("点击选择显卡", color = Primary.copy(alpha = 0.5f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = "移除",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(16.dp)
+                    )
                 }
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Primary.copy(alpha = 0.1f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = null,
+                        tint = Primary.copy(alpha = 0.6f),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Text(
+                    "点击选择",
+                    color = Primary.copy(alpha = 0.6f),
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium
+                )
             }
         }
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ScoreTypeGrid(selectedScoreType: ScoreType?, onScoreTypeSelect: (ScoreType) -> Unit) {
-    val scoreTypes = ScoreType.getGpuBenchmarks()
-    FlowRow(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+private fun ScoreTypeStrip(
+    selected: ScoreType?,
+    onSelect: (ScoreType) -> Unit
+) {
+    val items = ScoreType.getGpuBenchmarks()
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        scoreTypes.forEach { scoreType ->
-            ScoreTypeChip(
-                scoreType = scoreType,
-                isSelected = selectedScoreType == scoreType,
-                onClick = { onScoreTypeSelect(scoreType) }
-            )
+        items(items) { scoreType ->
+            val isSelected = selected == scoreType
+            val label = scoreType.displayName.replace("3DMark ", "")
+            Box(
+                modifier = if (isSelected) {
+                    Modifier
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Brush.linearGradient(listOf(GradientStart, GradientEnd)))
+                        .clickable { onSelect(scoreType) }
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                } else {
+                    Modifier
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .clickable { onSelect(scoreType) }
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun ScoreTypeChip(scoreType: ScoreType, isSelected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier.clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = if (isSelected) Primary else CardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 3.dp else 0.dp),
-        border = BorderStroke(1.dp, if (isSelected) Primary else CardBorder)
-    ) {
-        Box(
-            modifier = Modifier.padding(vertical = 10.dp, horizontal = 12.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = scoreType.displayName.replace("3DMark ", ""),
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                color = if (isSelected) Color.White else TextPrimary,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
-
-@Composable
-private fun GpuScoreResultSection(
+private fun ScoreDashboard(
     mode: QueryMode,
     scoreType: ScoreType?,
     hardware: List<SearchItem>,
     scores: List<BenchmarkScores?>
 ) {
     Column {
-        Text(
-            "${scoreType?.displayName?.replace("3DMark ", "") ?: ""} 跑分详情",
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(modifier = Modifier.height(6.dp))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(4.dp, 16.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(Primary)
+            )
+            Text(
+                "${scoreType?.displayName?.replace("3DMark ", "") ?: ""} 跑分结果",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+        Spacer(modifier = Modifier.height(16.dp))
 
         if (mode == QueryMode.SINGLE) {
-            val h = hardware.firstOrNull()
             val s = scores.firstOrNull()
-            if (h != null && s != null) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    GpuScoreCard("最高分", s.maxScore, Primary, Modifier.weight(1f))
-                    GpuScoreCard("中位分", s.medianScore, Accent, Modifier.weight(1f))
+            if (s != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    BigScoreCard(
+                        label = "最高分",
+                        score = s.maxScore,
+                        gradient = listOf(GradientStart, GradientEnd),
+                        modifier = Modifier.weight(1f)
+                    )
+                    BigScoreCard(
+                        label = "中位分",
+                        score = s.medianScore,
+                        gradient = listOf(Secondary, Secondary.copy(alpha = 0.5f)),
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
         } else {
             val score1 = scores.getOrNull(0)
             val score2 = scores.getOrNull(1)
-            val maxScore1 = score1?.maxScore ?: 0
-            val maxScore2 = score2?.maxScore ?: 0
-            val medianScore1 = score1?.medianScore ?: 0.0
-            val medianScore2 = score2?.medianScore ?: 0.0
 
-            Text("最高分数", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = TextSecondary)
-            Spacer(modifier = Modifier.height(2.dp))
-            GpuScoreComparisonRow(hardware.getOrNull(0), maxScore1, hardware.getOrNull(1), maxScore2)
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text("中位分数", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = TextSecondary)
-            Spacer(modifier = Modifier.height(2.dp))
-            GpuScoreComparisonRow(hardware.getOrNull(0), medianScore1, hardware.getOrNull(1), medianScore2)
+            CompareSection(
+                label = "最高分数",
+                h1 = hardware.getOrNull(0),
+                s1 = score1?.maxScore,
+                h2 = hardware.getOrNull(1),
+                s2 = score2?.maxScore
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            CompareSection(
+                label = "中位分数",
+                h1 = hardware.getOrNull(0),
+                s1 = score1?.medianScore,
+                h2 = hardware.getOrNull(1),
+                s2 = score2?.medianScore
+            )
         }
     }
 }
 
 @Composable
-private fun GpuScoreCard(title: String, score: Number, color: Color, modifier: Modifier = Modifier) {
+private fun BigScoreCard(
+    label: String,
+    score: Number,
+    gradient: List<Color>,
+    modifier: Modifier = Modifier
+) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = CardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        border = BorderStroke(1.dp, CardBorder)
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+        )
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp, horizontal = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp)
         ) {
-            Text(
-                text = if (score is Double) String.format("%,.0f", score) else String.format("%,d", score),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = color
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(4.dp)
+                    .background(
+                        Brush.horizontalGradient(gradient)
+                    )
             )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(title, style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 20.dp, horizontal = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = if (score is Double) String.format("%,.0f", score)
+                        else String.format("%,d", score),
+                    style = MaterialTheme.typography.displayLarge.copy(
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 28.sp
+                    ),
+                    fontWeight = FontWeight.Bold,
+                    color = gradient.first()
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    label,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun GpuScoreComparisonRow(h1: SearchItem?, s1: Number, h2: SearchItem?, s2: Number) {
-    val score1 = s1.toFloat()
-    val score2 = s2.toFloat()
+private fun CompareSection(
+    label: String,
+    h1: SearchItem?,
+    s1: Number?,
+    h2: SearchItem?,
+    s2: Number?
+) {
+    val score1 = (s1?.toFloat() ?: 0f)
+    val score2 = (s2?.toFloat() ?: 0f)
     val maxScore = maxOf(score1, score2).coerceAtLeast(1f)
     val ratio1 = score1 / maxScore
     val ratio2 = score2 / maxScore
+    val pct = if (score1 != 0f) ((score2 - score1) / score1) * 100 else 0f
 
-    val percentageDiff = if (score1 != 0f) {
-        ((score2 - score1) / score1) * 100
-    } else {
-        0f
-    }
-
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        GpuComparisonBar(h1?.label, s1, ratio1, Primary)
-        GpuComparisonBar(h2?.label, s2, ratio2, Accent, percentageDiff)
+    Column {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        CompareBar(h1?.label, s1, ratio1, Primary)
+        Spacer(modifier = Modifier.height(6.dp))
+        CompareBar(h2?.label, s2, ratio2, Secondary, pct)
     }
 }
 
 @Composable
-private fun GpuComparisonBar(label: String?, score: Number, ratio: Float, color: Color, percentageDiff: Float = 0f) {
-    val percentageText = if (percentageDiff != 0f) {
+private fun CompareBar(
+    label: String?,
+    score: Number?,
+    ratio: Float,
+    color: Color,
+    percentageDiff: Float = 0f
+) {
+    val animRatio by animateFloatAsState(
+        targetValue = ratio.coerceIn(0f, 1f),
+        animationSpec = tween(600),
+        label = "barRatio"
+    )
+    val pctText = if (percentageDiff != 0f) {
         val sign = if (percentageDiff > 0) "+" else ""
-        String.format(locale = java.util.Locale.US, "%s%.1f%%", sign, percentageDiff)
+        String.format("%s%.1f%%", sign, percentageDiff)
     } else ""
-    val percentageColor = if (percentageDiff < 0) Color.Red else if (percentageDiff > 0) Color(0xFF4CAF50) else TextSecondary
+    val pctColor = when {
+        percentageDiff < 0 -> com.tacke.benchmark.ui.theme.NegativeDelta
+        percentageDiff > 0 -> PositiveDelta
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
 
-    Column {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 label ?: "-",
                 style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.weight(1f),
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    if (score is Double) String.format("%,.0f", score) else String.format("%,d", score),
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = color
-                )
-                if (percentageText.isNotEmpty()) {
-                    Spacer(modifier = Modifier.size(6.dp))
-                    Box(
-                        modifier = Modifier
-                            .background(percentageColor.copy(alpha = 0.1f), RoundedCornerShape(6.dp))
-                            .padding(horizontal = 8.dp, vertical = 2.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (percentageDiff > 0) {
-                                Icon(Icons.Default.ArrowUpward, contentDescription = "up", tint = percentageColor, modifier = Modifier.size(12.dp))
-                            } else if (percentageDiff < 0) {
-                                Icon(Icons.Default.ArrowDownward, contentDescription = "down", tint = percentageColor, modifier = Modifier.size(12.dp))
-                            }
-                            Spacer(modifier = Modifier.size(2.dp))
-                            Text(percentageText, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = percentageColor)
-                        }
-                    }
-                }
-            }
-        }
-        Spacer(modifier = Modifier.height(2.dp))
-        Box(
-            modifier = Modifier.fillMaxWidth().height(6.dp).background(SurfaceVariant, RoundedCornerShape(3.dp))
-        ) {
+            Spacer(modifier = Modifier.height(6.dp))
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(ratio.coerceIn(0f, 1f))
-                    .height(6.dp)
-                    .background(brush = Brush.horizontalGradient(listOf(color, color.copy(alpha = 0.7f))), shape = RoundedCornerShape(3.dp))
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(animRatio)
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(
+                            Brush.horizontalGradient(listOf(color, color.copy(alpha = 0.5f)))
+                        )
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(
+            horizontalAlignment = Alignment.End
+        ) {
+            Text(
+                if (score != null) {
+                    if (score is Double) String.format("%,.0f", score)
+                    else String.format("%,d", score.toInt())
+                } else "-",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 16.sp
+                ),
+                fontWeight = FontWeight.Bold,
+                color = color
             )
+            if (pctText.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    if (percentageDiff > 0) {
+                        Icon(
+                            Icons.Default.ArrowUpward,
+                            contentDescription = null,
+                            tint = pctColor,
+                            modifier = Modifier.size(12.dp)
+                        )
+                    } else if (percentageDiff < 0) {
+                        Icon(
+                            Icons.Default.ArrowDownward,
+                            contentDescription = null,
+                            tint = pctColor,
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
+                    Text(
+                        pctText,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = pctColor
+                    )
+                }
+            }
         }
     }
 }

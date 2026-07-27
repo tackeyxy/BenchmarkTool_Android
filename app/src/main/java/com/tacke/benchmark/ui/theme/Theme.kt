@@ -13,31 +13,41 @@ import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
     primary = Primary,
-    secondary = Accent,
-    background = Color(0xFF121212),
-    surface = Color(0xFF1E1E1E),
+    secondary = Secondary,
+    tertiary = Tertiary,
+    background = Background,
+    surface = Surface,
+    surfaceVariant = SurfaceVariant,
     onPrimary = Color.White,
-    onSecondary = Color.White,
-    onBackground = Color.White,
-    onSurface = Color.White,
-    onSurfaceVariant = Color.LightGray
+    onSecondary = Color(0xFF003333),
+    onTertiary = Color.White,
+    onBackground = TextPrimary,
+    onSurface = TextPrimary,
+    onSurfaceVariant = TextSecondary,
+    outline = CardBorder,
+    outlineVariant = CardBorder.copy(alpha = 0.5f)
 )
 
 private val LightColorScheme = lightColorScheme(
     primary = Primary,
-    secondary = Accent,
-    background = Background,
-    surface = CardBackground,
+    secondary = Secondary,
+    tertiary = Tertiary,
+    background = LightBackground,
+    surface = LightCardBackground,
+    surfaceVariant = LightSurfaceVariant,
     onPrimary = Color.White,
-    onSecondary = TextPrimary,
-    onBackground = TextPrimary,
-    onSurface = TextPrimary,
-    onSurfaceVariant = TextSecondary
+    onSecondary = Color(0xFF003333),
+    onTertiary = Color.White,
+    onBackground = LightTextPrimary,
+    onSurface = LightTextPrimary,
+    onSurfaceVariant = LightTextSecondary,
+    outline = LightCardBorder,
+    outlineVariant = LightCardBorder.copy(alpha = 0.5f)
 )
 
 @Composable
 fun MyApplicationTheme(
-    darkTheme: Boolean = false, // Default to light theme
+    darkTheme: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme

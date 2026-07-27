@@ -5,13 +5,13 @@ plugins {
 
 android {
     namespace = "com.tacke.benchmark"
-    compileSdk = 35
+    compileSdk = 37
     buildToolsVersion = "36.0.0"
 
     defaultConfig {
         applicationId = "com.tacke.benchmark"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 37
         versionCode = 2
         versionName = "1.0.1"
 
