@@ -27,8 +27,11 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.automirrored.filled.CompareArrows
 import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -45,7 +48,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,7 +63,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.tacke.benchmark.data.model.CpuBenchmarkProject
 import com.tacke.benchmark.data.model.CpuBenchmarkScores
 import com.tacke.benchmark.data.model.SearchItem
 import com.tacke.benchmark.ui.components.LoadingDialog
@@ -69,6 +76,7 @@ import com.tacke.benchmark.ui.theme.PositiveDelta
 import com.tacke.benchmark.ui.theme.Primary
 import com.tacke.benchmark.ui.theme.Secondary
 
+import com.tacke.benchmark.ui.viewmodel.CpuBenchmarkUiState
 import com.tacke.benchmark.ui.viewmodel.CpuBenchmarkViewModel
 import com.tacke.benchmark.ui.viewmodel.QueryMode
 
@@ -106,7 +114,12 @@ fun CpuBenchmarkScreen(
         ) {
             item {
                 Spacer(modifier = Modifier.height(4.dp))
-                CpuHeaderSection(isDarkTheme = isDarkTheme, onToggleTheme = onToggleTheme)
+                CpuHeaderSection(
+                    selectedProject = uiState.selectedProject,
+                    isDarkTheme = isDarkTheme,
+                    onSelectProject = viewModel::selectProject,
+                    onToggleTheme = onToggleTheme
+                )
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
@@ -116,6 +129,16 @@ fun CpuBenchmarkScreen(
                     onModeChange = viewModel::setQueryMode
                 )
                 Spacer(modifier = Modifier.height(20.dp))
+            }
+
+            if (!uiState.isLoadingData && !hasUsableData(uiState)) {
+                item {
+                    DataErrorBanner(
+                        message = uiState.errorMessage ?: "未获取到基准测试数据",
+                        onRetry = viewModel::retryLoadData
+                    )
+                    Spacer(modifier = Modifier.height(20.dp))
+                }
             }
 
             item {
@@ -135,7 +158,8 @@ fun CpuBenchmarkScreen(
                     CpuScoreDashboard(
                         mode = uiState.queryMode,
                         hardware = uiState.selectedHardware,
-                        scores = uiState.benchmarkScores
+                        scores = uiState.benchmarkScores,
+                        benchmarkYear = uiState.benchmarkYear ?: uiState.selectedProject.year
                     )
                 }
             }
@@ -146,12 +170,12 @@ fun CpuBenchmarkScreen(
                 sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
                 title = "选择处理器",
                 placeholder = "输入处理器型号 (e.g., 14900K, Ryzen 9 7950X)",
-                emptyText = "未找到匹配的处理器",
+                emptyText = if (uiState.errorMessage != null) "数据加载失败，请点击下方重试" else "未找到匹配的处理器",
                 query = uiState.searchQuery,
                 results = uiState.searchResults,
                 isSearching = uiState.isSearching,
                 isLoadingData = uiState.isLoadingData,
-                errorMessage = uiState.errorMessage,
+                errorMessage = uiState.errorMessage?.let { "$it\n可关闭弹窗后点击「重试」重新加载" },
                 onQueryChange = viewModel::updateSearchQuery,
                 onSelect = viewModel::selectHardware,
                 onDismiss = viewModel::closeSearchSheet
@@ -162,9 +186,13 @@ fun CpuBenchmarkScreen(
 
 @Composable
 private fun CpuHeaderSection(
+    selectedProject: CpuBenchmarkProject,
     isDarkTheme: Boolean = false,
+    onSelectProject: (CpuBenchmarkProject) -> Unit = {},
     onToggleTheme: () -> Unit = {}
 ) {
+    var showProjectMenu by remember { mutableStateOf(false) }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -177,9 +205,10 @@ private fun CpuHeaderSection(
                     )
                 )
             )
-            .padding(20.dp)
+            .clickable { showProjectMenu = true }
     ) {
         Row(
+            modifier = Modifier.padding(20.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -200,12 +229,19 @@ private fun CpuHeaderSection(
                 )
             }
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    "Cinebench 2024",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        selectedProject.title,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Icon(
+                        Icons.Default.ArrowDropDown,
+                        contentDescription = "选择基准测试项目",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 Text(
                     "查询处理器基准测试分数与性能对比",
                     style = MaterialTheme.typography.bodySmall,
@@ -226,6 +262,58 @@ private fun CpuHeaderSection(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(20.dp)
                 )
+            }
+        }
+
+        // 项目选择器居中显示，避免下拉菜单受顶部卡片位置影响。
+        if (showProjectMenu) {
+            Dialog(onDismissRequest = { showProjectMenu = false }) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text(
+                            "选择基准测试项目",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        CpuBenchmarkProject.entries.forEach { project ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable {
+                                        showProjectMenu = false
+                                        onSelectProject(project)
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    project.title,
+                                    modifier = Modifier.weight(1f),
+                                    color = if (project == selectedProject) Primary
+                                    else MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = if (project == selectedProject) FontWeight.Bold
+                                    else FontWeight.Normal
+                                )
+                                if (project == selectedProject) {
+                                    Icon(
+                                        Icons.Default.Check,
+                                        contentDescription = "当前项目",
+                                        tint = Primary
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -337,6 +425,67 @@ private fun SectionTitle(text: String) {
         fontWeight = FontWeight.Bold,
         color = MaterialTheme.colorScheme.onSurface
     )
+}
+
+/** 数据没能加载成功（失败或为空）时才提示，避免与「正在加载」重复。 */
+private fun hasUsableData(state: CpuBenchmarkUiState): Boolean =
+    state.errorMessage == null && state.isDataAvailable
+
+/**
+ * 标题跟随数据源年份变化：数据里是 "Cinebench 2026" 就显示 2026。
+ * 年份未知时退回不带年份的名称，避免继续强调已经过期的 2024。
+ */
+private fun cinebenchTitle(benchmarkYear: String?): String =
+    if (benchmarkYear.isNullOrBlank()) "Cinebench" else "Cinebench $benchmarkYear"
+
+@Composable
+private fun DataErrorBanner(
+    message: String,
+    onRetry: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onErrorContainer
+            )
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.error)
+                    .clickable(onClick = onRetry)
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(
+                    Icons.Default.Refresh,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onError,
+                    modifier = Modifier.size(16.dp)
+                )
+                Text(
+                    "重试",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onError
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -503,7 +652,8 @@ private fun CpuSelectionCard(
 private fun CpuScoreDashboard(
     mode: QueryMode,
     hardware: List<SearchItem>,
-    scores: List<CpuBenchmarkScores?>
+    scores: List<CpuBenchmarkScores?>,
+    benchmarkYear: String? = null
 ) {
     Column {
         Row(
@@ -517,7 +667,7 @@ private fun CpuScoreDashboard(
                     .background(Primary)
             )
             Text(
-                "Cinebench 2024 跑分结果",
+                "${cinebenchTitle(benchmarkYear)} 跑分结果",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
@@ -526,25 +676,23 @@ private fun CpuScoreDashboard(
         Spacer(modifier = Modifier.height(16.dp))
 
         if (mode == QueryMode.SINGLE) {
-            val s = scores.firstOrNull()
-            if (s != null) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    BigScoreCard(
-                        label = "单核分数",
-                        score = s.singleScore,
-                        gradient = listOf(Secondary, Secondary.copy(alpha = 0.5f)),
-                        modifier = Modifier.weight(1f)
-                    )
-                    BigScoreCard(
-                        label = "多核分数",
-                        score = s.multiScore,
-                        gradient = listOf(GradientStart, GradientEnd),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
+            val score = scores.firstOrNull()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                BigScoreCard(
+                    label = "单核分数",
+                    score = score?.singleScore,
+                    gradient = listOf(Secondary, Secondary.copy(alpha = 0.5f)),
+                    modifier = Modifier.weight(1f)
+                )
+                BigScoreCard(
+                    label = "多核分数",
+                    score = score?.multiScore,
+                    gradient = listOf(GradientStart, GradientEnd),
+                    modifier = Modifier.weight(1f)
+                )
             }
         } else {
             val score1 = scores.getOrNull(0)

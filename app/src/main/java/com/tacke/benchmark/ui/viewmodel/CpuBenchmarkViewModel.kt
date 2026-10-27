@@ -2,6 +2,7 @@ package com.tacke.benchmark.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.tacke.benchmark.data.model.CpuBenchmarkProject
 import com.tacke.benchmark.data.model.CpuBenchmarkScores
 import com.tacke.benchmark.data.model.SearchItem
 import com.tacke.benchmark.data.repository.CpuBenchmarkRepository
@@ -15,6 +16,7 @@ import kotlinx.coroutines.launch
 
 data class CpuBenchmarkUiState(
     val queryMode: QueryMode = QueryMode.SINGLE,
+    val selectedProject: CpuBenchmarkProject = CpuBenchmarkProject.CINEBENCH_2026,
     val searchQuery: String = "",
     val searchResults: List<SearchItem> = emptyList(),
     val isSearching: Boolean = false,
@@ -22,6 +24,9 @@ data class CpuBenchmarkUiState(
     val selectedHardware: List<SearchItem> = emptyList(),
     val benchmarkScores: List<CpuBenchmarkScores?> = emptyList(),
     val isLoadingData: Boolean = true,
+    val isDataAvailable: Boolean = false,
+    /** 标题实际使用的年份；切换项目时立即跟随所选项目更新。 */
+    val benchmarkYear: String? = CpuBenchmarkProject.CINEBENCH_2026.year,
     val errorMessage: String? = null
 )
 
@@ -32,26 +37,78 @@ class CpuBenchmarkViewModel : ViewModel() {
     val uiState: StateFlow<CpuBenchmarkUiState> = _uiState.asStateFlow()
 
     private var searchJob: Job? = null
+    private var loadJob: Job? = null
+    private var loadGeneration = 0
 
     init {
         fetchCpuData()
     }
 
     private fun fetchCpuData() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoadingData = true) }
-            val result = repository.fetchCpuScores()
+        val project = _uiState.value.selectedProject
+        val generation = ++loadGeneration
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    isLoadingData = true,
+                    errorMessage = null,
+                    isDataAvailable = repository.isDataLoaded(project)
+                )
+            }
+            val result = repository.fetchCpuScores(project)
+            // 用户已切到其他项目时，忽略旧请求的结果。
+            if (generation != loadGeneration) return@launch
             result.fold(
                 onSuccess = {
-                    _uiState.update { it.copy(isLoadingData = false) }
+                    _uiState.update {
+                        it.copy(
+                            isLoadingData = false,
+                            isDataAvailable = true,
+                            benchmarkYear = repository.benchmarkYear(project)
+                        )
+                    }
+                    fetchBenchmarkScores()
                 },
                 onFailure = { error ->
                     _uiState.update {
-                        it.copy(isLoadingData = false, errorMessage = "数据加载失败: ${error.message}")
+                        it.copy(
+                            isLoadingData = false,
+                            isDataAvailable = repository.isDataLoaded(project),
+                            benchmarkYear = repository.benchmarkYear(project),
+                            errorMessage = "${project.title} 数据加载失败: ${error.message}"
+                        )
                     }
                 }
             )
         }
+    }
+
+    /** 数据加载失败后由界面上的「重试」按钮调用。 */
+    fun retryLoadData() {
+        if (_uiState.value.isLoadingData) return
+        fetchCpuData()
+    }
+
+    /** 选择 Cinebench 2026 / 2024，重新查询当前项目的数据。 */
+    fun selectProject(project: CpuBenchmarkProject) {
+        if (project == _uiState.value.selectedProject) return
+        searchJob?.cancel()
+        _uiState.update {
+            it.copy(
+                selectedProject = project,
+                benchmarkYear = project.year,
+                selectedHardware = emptyList(),
+                benchmarkScores = emptyList(),
+                searchQuery = "",
+                searchResults = emptyList(),
+                isSearching = false,
+                showSearchSheet = false,
+                isDataAvailable = repository.isDataLoaded(project),
+                errorMessage = null
+            )
+        }
+        fetchCpuData()
     }
 
     fun setQueryMode(mode: QueryMode) {
@@ -95,8 +152,10 @@ class CpuBenchmarkViewModel : ViewModel() {
     }
 
     private fun performSearch(query: String) {
+        val project = _uiState.value.selectedProject
         _uiState.update { it.copy(isSearching = true) }
-        val results = repository.searchCpu(query)
+        val results = repository.searchCpu(project, query)
+        if (project != _uiState.value.selectedProject) return
         _uiState.update {
             it.copy(
                 searchResults = results.map { SearchItem(it.ranking.toString(), it.cpu) },
@@ -138,12 +197,14 @@ class CpuBenchmarkViewModel : ViewModel() {
     }
 
     private fun fetchBenchmarkScores() {
-        val hardwareList = _uiState.value.selectedHardware
+        val state = _uiState.value
+        val hardwareList = state.selectedHardware
         if (hardwareList.isEmpty()) return
 
         val scores = hardwareList.map { hw ->
-            repository.getScores(hw.label)
+            runCatching { repository.getScores(state.selectedProject, hw.label) }.getOrNull()
         }
+        if (state.selectedProject != _uiState.value.selectedProject) return
         _uiState.update { it.copy(benchmarkScores = scores) }
     }
 

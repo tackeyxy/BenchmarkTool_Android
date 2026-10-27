@@ -80,21 +80,7 @@ fun SearchSheet(
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 20.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .width(40.dp)
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
-                )
-            }
-
+            // ModalBottomSheet 自带一条 drag handle，这里不再重复绘制。
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(bottom = 16.dp)
